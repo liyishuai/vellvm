@@ -61,12 +61,10 @@ Definition size {a} (m : IM.t a) : Z := Z.of_nat (IM.cardinal m).
 
 Definition memory := IntMap dvalue.
 
-Print IO.
-
 Definition mem_step {X} (e:IO X) (m:memory) : (IO X) + (memory * X) :=
   match e with
-  | Alloca t =>
-    inr  (add (size m + 1) (DVALUE_Null t) m, (* Find efficient way to calculate a fresh pointer*)
+  | Alloca =>
+    inr  (add (size m + 1) DVALUE_Null m, (* Find efficient way to calculate a fresh pointer*)
           DVALUE_Addr (size m + 1))
          
   | Load dv =>
@@ -101,9 +99,3 @@ CoFixpoint memD {X} (m:memory) (d:Trace X) : Trace X :=
   | Trace.Ret x => d
   | Trace.Err x => d
   end.
-
-
-Definition run_with_memory prog : option (Trace dvalue) :=
-  mret
-    (memD empty (SS.step_sem prog (Step (init_state prog)))).
-

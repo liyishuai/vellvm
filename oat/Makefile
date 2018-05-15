@@ -1,6 +1,5 @@
 all: Makefile.coq
 	$(MAKE) -f $<
-	ocaml oat_ast.ml
 
 clean:
 	if [ -e Makefile.coq ]; then $(MAKE) -f Makefile.coq clean; fi

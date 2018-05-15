@@ -10,7 +10,7 @@
 
 Require Import ZArith List String Omega.
 Require Import Vellvm.Classes Vellvm.Util Vellvm.Trace.
-Require Import Oat.AST Vellvm.LLVMBaseTypes.
+Require Import Oat.AST Vellvm.DynamicValues.
 
 Set Implicit Arguments.
 Set Contextual Implicit.
@@ -24,16 +24,15 @@ Module DVALUE(A:ADDR).
        
 (* The set of dynamic values manipulated by an OAT program. *)
 Inductive dvalue : Set :=
-| DVALUE_FunPtr (fid : id) (* Is this needed?*)
 | DVALUE_Addr (a:A.addr)
 | DVALUE_Bool (x:bool)
 | DVALUE_I64 (x:int64)
-| DVALUE_Null (t:ty)
+| DVALUE_Null
 | DVALUE_Struct  (fields: list (id * dvalue))
 | DVALUE_Array   (elts: list dvalue).
 
 Inductive IO : Type -> Type :=
-| Alloca : forall (t:ty), (IO dvalue)
+| Alloca : IO dvalue
 | Load   : forall (a:dvalue), (IO dvalue)
 | Store  : forall (a:dvalue) (v:dvalue), (IO unit)
 .    

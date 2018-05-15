@@ -184,7 +184,7 @@ Fixpoint find_function_entry (CFG:prog) (fid:id) : option fdecl :=
   | [] => None
   | decl :: CFG' =>
     match decl with
-    | Gfdecl {| elt := f; loc := _ |} =>
+    | Gfdecl f =>
       match f with
       | {| frtyp := _; fname := name; args := _; body := _ |} =>
         if StringOrdFacts.eqb name fid then Some f else find_function_entry CFG' fid
@@ -248,38 +248,38 @@ Fixpoint eval_exp (CFG:prog) (s:state) (o:exp) : Trace dvalue :=
   match o with
   | CNull t => mret (DVALUE_Addr A.null)
   | CBool b =>
-    Trace.Vis (Alloca TBool)
+    Trace.Vis Alloca
               (fun dv => Trace.Vis (Store (DVALUE_Bool b) dv)
                                 (fun dv' => mret dv))
   | CInt i =>
-    Trace.Vis (Alloca TInt)
+    Trace.Vis Alloca
               (fun dv => Trace.Vis (Store (DVALUE_I64 (Int64.repr i)) dv)
                                 (fun dv' => mret dv))
   | CStr s => raise "TODO: Implement strings"
   | CArr t es => 
-    'dvs <- map_monad (fun x => eval_exp CFG s (elt_of x)) es;
-    Trace.Vis (Alloca (TRef (RArray t)))
+    'dvs <- map_monad (fun x => eval_exp CFG s x) es;
+    Trace.Vis Alloca
               (fun dv => Trace.Vis (Store (DVALUE_Array dvs) dv)
                                 (fun dv' => mret dv))
                      
   | CStruct i es => 
-    'dvs <- map_monad (fun x => eval_exp CFG s (elt_of (snd x))) es;
+    'dvs <- map_monad (fun x => eval_exp CFG s (snd x)) es;
     let dvs' := List.map (fun '((id, _), dv) => (id, dv)) (List.combine es dvs) in
-    Trace.Vis (Alloca (TRef (RStruct i)))
+    Trace.Vis Alloca
               (fun dv => Trace.Vis (Store (DVALUE_Struct dvs') dv)
                                 (fun dv' => mret dv))
     
 
   | Proj en i =>
-    'str <- eval_exp CFG s (elt_of en);
+    'str <- eval_exp CFG s en;
     '; assert_pointer str;
     Trace.Vis (Load str) (fun dv => project_from_struct dv i)
     
   | NewArr t en =>
-    'v <- eval_exp CFG s (elt_of en);
+    'v <- eval_exp CFG s en;
     'i <- get_index v;
-    Trace.Vis (Alloca t) (fun (a:dvalue) =>
-                            Trace.Vis (Store (DVALUE_Array (replicate (DVALUE_Null t) i)) a)
+    Trace.Vis Alloca (fun (a:dvalue) =>
+                            Trace.Vis (Store (DVALUE_Array (replicate DVALUE_Null i)) a)
                                       (fun _ => mret a))
                                
   | Id id =>  
@@ -291,8 +291,8 @@ Fixpoint eval_exp (CFG:prog) (s:state) (o:exp) : Trace dvalue :=
     end
 
   | Index en1 en2 =>
-    'a <- eval_exp CFG s (elt_of en1);
-    'i <- eval_exp CFG s (elt_of en2);
+    'a <- eval_exp CFG s en1;
+    'i <- eval_exp CFG s en2;
     '_ <- assert_pointer a;
     '_ <- assert_pointer i;
     Trace.Vis (Load a) (fun dv => Trace.Vis (Load i) (fun i => index_into_array i dv))
@@ -300,20 +300,20 @@ Fixpoint eval_exp (CFG:prog) (s:state) (o:exp) : Trace dvalue :=
   | AST.Call f args => raise "Function calls in expressions not supported"
 
   | Bop b e1 e2 =>                   
-    'v1 <- eval_exp CFG s (elt _ e1);
-    'v2 <- eval_exp CFG s (elt _ e2);
+    'v1 <- eval_exp CFG s e1;
+    'v2 <- eval_exp CFG s e2;
     '_ <- assert_pointer v1;
     '_ <- assert_pointer v2;
     Trace.Vis (Load v1) (fun dv1 => Trace.Vis (Load v2) (fun dv2 =>
                         'r <- eval_op b dv1 dv2; mret r))
            
   | Uop u e =>                       
-    'v <- eval_exp CFG s (elt _ e);
+    'v <- eval_exp CFG s e;
     '_ <- assert_pointer v;
     Trace.Vis (Load v) (fun dv => 'r <- eval_uop u dv; mret r)
            
   | Length en =>
-    'a <- eval_exp CFG s (elt _ en);
+    'a <- eval_exp CFG s en;
     '_ <- assert_pointer a;
     Trace.Vis (Load a) (fun dv => length_of_array dv)
   end.
@@ -361,28 +361,28 @@ Definition get_bool (v:dvalue) : Trace bool :=
   | _ => raise "guard is not a boolean"
   end. 
 
-Print stmt.
 
+Print stmt.
 
 Fixpoint step (CFG:prog) (s:state) : Trace result :=
   let '(g, pc, e, f, k) := s in
   match pc with
   | Assn en1 en2 :: tl =>
-    'v2 <- eval_exp CFG s (elt_of en2);
+    'v2 <- eval_exp CFG s en2;
     '_ <- assert_pointer v2;
-    match elt_of en1 with
+    match en1 with
     | Id i =>
       mret (Step (g, pc, add_env i v2 e, f, k)) 
     | Proj en i =>
-      'str <- eval_exp CFG s (elt_of en);
+      'str <- eval_exp CFG s en;
       '_ <- assert_pointer str;  
       Trace.Vis (Load str)
                 (fun dv => 'd <- project_into_struct dv i v2;
                         Trace.Vis (Store d str)
                                   (fun dv' => mret (Step (g, tl, e, f, k))))
     | Index en1 en2 =>
-      'a <- eval_exp CFG s (elt_of en1);
-      'i <- eval_exp CFG s (elt_of en2);
+      'a <- eval_exp CFG s en1;
+      'i <- eval_exp CFG s en2;
       '_ <- assert_pointer a;
       '_ <- assert_pointer i;
       Trace.Vis (Load i)
@@ -394,7 +394,7 @@ Fixpoint step (CFG:prog) (s:state) : Trace result :=
     | _ => raise "Invalid LHS for assignment"
     end
     
-  | Return (Some {| elt := e'; loc := _ |}) :: [] =>(*
+  | Return (Some e') :: [] =>(*
     'dv <- eval_exp g None e';
       match k with
       | [] => halt dv       
@@ -411,15 +411,12 @@ Fixpoint step (CFG:prog) (s:state) : Trace result :=
     end*)
     raise "Unimplemented"
   | If en thens elses :: tl =>
-    'bd <- eval_exp CFG s (elt_of en);
+    'bd <- eval_exp CFG s en;
     'b <- get_bool bd;
-    if b then mret (Step (g, app (map elt_of thens) tl, e, f, k))
-    else mret (Step (g, app (map elt_of elses) tl, e, f, k))
+    if b then mret (Step (g, app thens tl, e, f, k))
+    else mret (Step (g, app elses tl, e, f, k))
   | While en thens :: tl =>
-    'bd <- eval_exp CFG s (elt_of en);
-    'b <- get_bool bd;
-    if b then mret (Step (g, app (map elt_of thens) pc, e, f, k))
-    else mret (Step (g, tl, e, f, k))
+    mret (Step (g, (If en (app thens [While en thens]) []) :: tl, e, f, k))
   | _ => raise "Unimplemented"     
 
   end.
@@ -430,8 +427,8 @@ Fixpoint register_globals (CFG:prog) : Trace genv :=
   | [] => mret empty_genv
   | Gvdecl gn :: tl =>
     'genv <- register_globals tl;
-    'r <- eval_exp CFG empty_state (elt_of (init (elt_of gn)));
-    mret (ENV.add (name (elt_of gn)) r genv)
+    'r <- eval_exp CFG empty_state (init gn);
+    mret (ENV.add (name gn) r genv)
   | h :: tl => register_globals tl
   end.
 
@@ -440,12 +437,32 @@ Fixpoint register_functions (CFG:prog) : Trace fenv :=
   | [] => mret empty_fenv
   | Gfdecl fn :: tl =>
     'fenv <- register_functions tl;
-     mret (ENV.add (fname (elt_of fn)) (List.map elt_of (body (elt_of fn))) fenv)
+     mret (ENV.add (fname fn) (body fn) fenv)
   | h :: tl => register_functions tl
-  end. 
+  end.
+
+Fixpoint register_structs (globs:genv) (CFG:prog) : Trace genv :=
+  mret globs. (* Should this do anything? That is, are we typechecking here? *)
+
+
+Definition get_entry (CFG:prog) : Trace pc :=
+  let entry := fold_right (fun decl acc =>
+                             match decl with
+                             | Gfdecl f =>
+                               if ENVFacts.eqb (fname f) "program" then Some (body f) else acc
+                             | _ => acc
+                             end) None CFG in
+  match entry with
+  | Some b => mret b
+  | None => raise "No program entry defined"
+  end.
 
 Definition init_state (CFG:prog) : Trace state :=
-  raise "Unimplemented".
+  'fenv <- register_functions CFG;
+  'genv <- register_globals CFG;
+  'tenv <- register_structs genv CFG;
+  'entry <- get_entry CFG;
+  mret (tenv, entry, empty_env, fenv, []).
 
 CoFixpoint step_sem (CFG:prog) (r:result) : Trace dvalue :=
   match r with

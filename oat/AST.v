@@ -27,18 +27,12 @@ Definition node (A:Type) := A.
 And extract to the record below for OCaml
 *)
 
-
+(* 
 Record node (A:Type) := mkNode { elt : A ; loc : t }.
-
-
-
-
-Definition elt_of {A} (n:node A) : A :=
-  match n with
-  | {| elt := a; loc := _ |} => a
-  end.
-
 Definition no_loc {A} (x:A) := mkNode A x norange.
+*)
+
+Definition node (A:Type) := A.
 
 (* OAT identifiers *)
 Definition id := string.
@@ -318,6 +312,7 @@ Instance showExp `{Show exp'} : Show exp :=
 (* Extraction *)
 (* Extract Inlined Constant nat_of_string => "int_of_string". *)
 
+
 Extract Inductive string => "string" [ """""" "(fun (h,t) -> (String.make 1 h) ^ t)" ].
 
-Extraction "oat_ast.ml" prog no_loc cfield.
+Extraction "oat_ast.ml" prog cfield.
