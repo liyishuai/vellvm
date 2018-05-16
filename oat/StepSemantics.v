@@ -42,12 +42,13 @@ Module OStepSemantics(A:ADDR).
   
   Definition genv := ENV.t dvalue.
   Definition env  := ENV.t dvalue.
-  Definition fenv := ENV.t (list stmt).
+  Definition fenv := ENV.t ((list id) * (list stmt)).
                            
   Definition pc := list stmt. (* Was this right? *)
   
   Inductive frame : Type :=
-  | KRetExp (e:env) (p:pc)
+  | KRetVoid (e:env) (p:pc)
+  | KRetVal (v:exp) (e:env) (p:pc)
   .       
   Definition stack := list frame.
 
@@ -55,7 +56,7 @@ Module OStepSemantics(A:ADDR).
 
   Definition empty_genv : genv := ENV.empty dvalue.
   Definition empty_env : env := ENV.empty dvalue.
-  Definition empty_fenv : fenv := ENV.empty (list stmt).
+  Definition empty_fenv : fenv := ENV.empty ((list id) * (list stmt)).
   Definition empty_pc : pc := [].
   Definition empty_stack : stack := [].
   
@@ -99,10 +100,6 @@ Module OStepSemantics(A:ADDR).
 
 Definition cont (s:state) : Trace result := mret (Step s).
 Definition halt (v:dvalue) : Trace result := mret (Done v).
-
-Definition jump (CFG:prog) (fid:id) (bid_src:id) (bid_tgt:id) (g:genv) (e_init:env) (k:stack) : Trace result :=
-  raise "Unimplemented".
-
 
 
 Definition eval_uop (u:unop) (v:dvalue) : Trace dvalue :=
@@ -362,8 +359,6 @@ Definition get_bool (v:dvalue) : Trace bool :=
   end. 
 
 
-Print stmt.
-
 Fixpoint step (CFG:prog) (s:state) : Trace result :=
   let '(g, pc, e, f, k) := s in
   match pc with
@@ -372,14 +367,14 @@ Fixpoint step (CFG:prog) (s:state) : Trace result :=
     '_ <- assert_pointer v2;
     match en1 with
     | Id i =>
-      mret (Step (g, pc, add_env i v2 e, f, k)) 
+      cont (g, pc, add_env i v2 e, f, k)
     | Proj en i =>
       'str <- eval_exp CFG s en;
       '_ <- assert_pointer str;  
       Trace.Vis (Load str)
                 (fun dv => 'd <- project_into_struct dv i v2;
                         Trace.Vis (Store d str)
-                                  (fun dv' => mret (Step (g, tl, e, f, k))))
+                                  (fun dv' => cont (g, tl, e, f, k)))
     | Index en1 en2 =>
       'a <- eval_exp CFG s en1;
       'i <- eval_exp CFG s en2;
@@ -389,34 +384,57 @@ Fixpoint step (CFG:prog) (s:state) : Trace result :=
                 (fun j => 'i <- get_index j;
                        Trace.Vis (Load a)
                                  (fun arr => 'r <- insert_into_array arr i v2;
-                                          Trace.Vis (Store r arr) (fun _ => mret (Step (g, tl, e, f, k)))))
+                                          Trace.Vis (Store r arr) (fun _ => cont (g, tl, e, f, k))))
       
     | _ => raise "Invalid LHS for assignment"
     end
-    
-  | Return (Some e') :: [] =>(*
-    'dv <- eval_exp g None e';
-      match k with
-      | [] => halt dv       
-      | (KRetExp e' p')::k => cont (g, p', 
-      | _ => raise "IMPOSSIBLE: Ret op in non-return configuration" 
-      end*)
-    raise "Unimplemented"
-        
-  | Return None :: [] => (*
+
+  | SCall id vars :: tl =>
+    match id with
+    | Id fid =>
+      '(ids, body) <- lookup_env f fid;
+      'vdecs <- match combine_lists_err ids vars with
+               | inl s => raise s
+               | inr vs => mret (map (fun '(id, v) => Assn (Id id) v) vs)
+               end;
+      cont (g, app vdecs body, e, f, KRetVoid e tl :: k)
+    | _ => Err "Call on non function id"
+    end
+      
+  | Return (Some e') :: [] =>
     match k with
-    | [] => halt DVALUE_Null
-    | (KRet_void e' p')::k => mret DVALUE_Null
-    | _ => raise "IMPOSSIBLE: Ret void in non-return configuration"
-    end*)
-    raise "Unimplemented"
+    | [] => 'v <- eval_exp CFG s e'; halt v
+    | _ => raise "non void returns only accepted in program"
+    end
+    
+  | Return None :: [] => 
+    match k with
+    | [] => raise "Program cannot return void"
+    | KRetVoid e pc :: tl => cont (g, pc, e, f, tl)
+    | _ => raise "Non void return in void returning function"
+    end
+      
   | If en thens elses :: tl =>
     'bd <- eval_exp CFG s en;
     'b <- get_bool bd;
-    if b then mret (Step (g, app thens tl, e, f, k))
-    else mret (Step (g, app elses tl, e, f, k))
+    if b then cont (g, app thens tl, e, f, k)
+    else cont (g, app elses tl, e, f, k)
+              
   | While en thens :: tl =>
-    mret (Step (g, (If en (app thens [While en thens]) []) :: tl, e, f, k))
+    cont (g, (If en (app thens [While en thens]) []) :: tl, e, f, k)
+
+  | For inits guard aft body :: tl =>
+    let vdecs := map (fun '(id, exp) => Assn (Id id) exp) inits in
+    let b := match guard with
+             | Some g => g
+             | None => CBool true
+             end in
+    let thens := match aft with
+                 | Some t => [t]
+                 | None => []
+                 end in
+    cont (g, While b (app body thens) :: tl, e, f, k)
+    
   | _ => raise "Unimplemented"     
 
   end.
@@ -437,7 +455,7 @@ Fixpoint register_functions (CFG:prog) : Trace fenv :=
   | [] => mret empty_fenv
   | Gfdecl fn :: tl =>
     'fenv <- register_functions tl;
-     mret (ENV.add (fname fn) (body fn) fenv)
+     mret (ENV.add (fname fn) (map snd (args fn), body fn) fenv)
   | h :: tl => register_functions tl
   end.
 
