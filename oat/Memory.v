@@ -12,7 +12,7 @@ Set Contextual Implicit.
 
 Module A : OATIO.ADDR with Definition addr := Z.
   Definition addr := Z.
-  Definition null := 0.
+  Definition null := -1.
   Lemma eq_dec :
     forall (x y: addr), {x = y} + {~ x = y}.
   Proof.
