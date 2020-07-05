@@ -244,30 +244,26 @@ Module Type LLVM_INTERACTIONS (ADDR : MemoryAddress.ADDRESS).
       | inr1 (inr1 e) => inr1 (inr1 (inr1 (inr1 (inr1 e))))
       end.
 
-  (* Definition _L0_to_L0' : L0 ~> L0' := *)
-  (*   fun _ e => *)
-  (*     match e with *)
-  (*     | inl1 e => inl1 (inr1 e) *)
-  (*     | inr1 e => (inr1 e) *)
-  (*     end. *)
+  (* For multiple CFG, after interpreting [JmpE] *)
+  Definition L1 := ExternalCallE +' IntrinsicE +' LLVMGEnvE +' (LLVMEnvE +' LLVMStackE) +' MemoryE +' PickE +' UBE +' DebugE +' FailureE.
 
   (* For multiple CFG, after interpreting [GlobalE] *)
-  Definition L1 := ExternalCallE +' IntrinsicE +' (LLVMEnvE +' LLVMStackE) +' MemoryE +' PickE +' UBE +' DebugE +' FailureE.
+  Definition L2 := ExternalCallE +' IntrinsicE +' (LLVMEnvE +' LLVMStackE) +' MemoryE +' PickE +' UBE +' DebugE +' FailureE.
 
   (* For multiple CFG, after interpreting [LocalE] *)
-  Definition L2 := ExternalCallE +' IntrinsicE +' MemoryE +' PickE +' UBE +' DebugE +' FailureE.
+  Definition L3 := ExternalCallE +' IntrinsicE +' MemoryE +' PickE +' UBE +' DebugE +' FailureE.
 
   (* For multiple CFG, after interpreting [LocalE] and [MemoryE] and [IntrinsicE] that are memory intrinsics *)
-  Definition L3 := ExternalCallE +' PickE +' UBE +' DebugE +' FailureE.
+  Definition L4 := ExternalCallE +' PickE +' UBE +' DebugE +' FailureE.
 
   (* For multiple CFG, after interpreting [LocalE] and [MemoryE] and [IntrinsicE] that are memory intrinsics and [PickE]*)
-  Definition L4 := ExternalCallE +' UBE +' DebugE +' FailureE.
+  Definition L5 := ExternalCallE +' UBE +' DebugE +' FailureE.
 
-  Definition L5 := ExternalCallE +' DebugE +' FailureE.
+  Definition L6 := ExternalCallE +' DebugE +' FailureE.
 
-  Hint Unfold L0 L0' L1 L2 L3 L4 L5 : core.
+  Hint Unfold L0 L0' L1 L2 L3 L4 L5 L6 : core.
 
-  Definition _failure_UB_to_L4 : (FailureE +' UBE) ~> L4:=
+  Definition _failure_UB_to_L4 : (FailureE +' UBE) ~> L5:=
     fun T e =>
       match e with
       | inl1 x => inr1 (inr1 (inr1 x))

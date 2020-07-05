@@ -194,9 +194,9 @@ Import D IS.
              (args : list uvalue)
              (user_intrinsics: intrinsic_definitions)
              (prog: list (toplevel_entity typ (block typ * list (block typ))))
-    : itree L5 res_L4 :=
+    : itree L6 _ :=
     let t := denote_vellvm ret_typ entry args (mcfg_of_tle prog) in
-    interp_to_L5_exec user_intrinsics t [] ([],[]) empty_memory_stack.
+    interp_to_L6_exec user_intrinsics t (Name "dummy") [] ([],[]) empty_memory_stack.
 
   (**
      Finally, the reference interpreter assumes no user-defined intrinsics and starts 
@@ -215,15 +215,16 @@ Import D IS.
      to [mcfg], normalizes the types, denotes the [mcfg] and finally interprets the tree
      starting from empty environments.
    *)
+  
   Definition model_user
              (ret_typ : dtyp)
              (entry : string)
              (args : list uvalue)
              (user_intrinsics: IS.intrinsic_definitions)
              (prog: list (toplevel_entity typ (block typ * list (block typ))))
-    : PropT L5 (memory_stack * (local_env * lstack * (global_env * uvalue))) :=
+    : PropT L6 (memory_stack * (local_env * lstack * (global_env * (block_id * uvalue)))) :=
     let t := denote_vellvm ret_typ entry args (mcfg_of_tle prog) in
-    interp_to_L5 Logic.eq user_intrinsics t [] ([],[]) empty_memory_stack. 
+    interp_to_L6 Logic.eq user_intrinsics t (Name "dummy") [] ([],[]) empty_memory_stack. 
 
   (**
      Finally, the reference interpreter assumes no user-defined intrinsics.
