@@ -419,7 +419,7 @@ Lemma denote_bks_singleton :
     blk_id b = bid ->
     (snd (blk_term b)) = (TERM_Br_1 nextblock) ->
     (blk_id b) <> nextblock ->
-    eutt (Logic.eq) (D.denote_bks [b] bid) (D.denote_block b).
+    eutt (Logic.eq) (D.denote_bks [b] bid) (D.denote_block b;; ).
 Proof.
   intros b bid nextblock Heqid Heqterm Hneq.
   cbn.
