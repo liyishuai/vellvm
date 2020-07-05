@@ -72,38 +72,45 @@ Definition TT {A} : relation A := fun _ _ => True.
 (* Refinement of uninterpreted mcfg *)
 Definition refine_L0: relation (itree L0 uvalue) := eutt refine_uvalue.
 
-(* Refinement of mcfg after globals *)
-Definition refine_res1 : relation (global_env * uvalue)
+(* Refinement of mcfg after jumps *)
+Definition refine_res1 : relation (block_id * uvalue)
   := TT × refine_uvalue.
 
-Definition refine_L1 : relation (itree L1 (global_env * uvalue))
+Definition refine_L1 : relation (itree L1 (block_id * uvalue))
   := eutt refine_res1.
 
-(* Refinement of mcfg after locals *)
-Definition refine_res2 : relation (local_env * lstack * (global_env * uvalue))
+(* Refinement of mcfg after globals *)
+Definition refine_res2 : relation (global_env * (block_id * uvalue))
   := TT × refine_res1.
 
-Definition refine_L2 : relation (itree L2 (local_env * stack * (global_env * uvalue)))
+Definition refine_L2 : relation (itree L2 (global_env * (block_id * uvalue)))
   := eutt refine_res2.
 
-(* For multiple CFG, after interpreting [LocalE] and [MemoryE] and [IntrinsicE] that are memory intrinsics *)
-Definition refine_res3 : relation (memory_stack * (local_env * stack * (global_env * uvalue)))
+(* Refinement of mcfg after locals *)
+Definition refine_res3 : relation (local_env * lstack * (global_env * (block_id * uvalue)))
   := TT × refine_res2.
 
-Definition refine_L3 : relation (itree L3 (memory_stack * (local_env * stack * (global_env * uvalue))))
+Definition refine_L3 : relation (itree L3 (local_env * stack * (global_env * (block_id * uvalue))))
   := eutt refine_res3.
+
+(* For multiple CFG, after interpreting [LocalE] and [MemoryE] and [IntrinsicE] that are memory intrinsics *)
+Definition refine_res4 : relation (memory_stack * (local_env * stack * (global_env * (block_id * uvalue))))
+  := TT × refine_res3.
+
+Definition refine_L4 : relation (itree L4 (memory_stack * (local_env * stack * (global_env * (block_id * uvalue)))))
+  := eutt refine_res4.
 
 (* Refinement for after interpreting pick. *)
 (* SAZ: we still want the "bigger" set to be on the left so every thing in ts' should be found in ts, right? *)
-Definition refine_L4 : relation ((itree L4 (memory_stack * (local_env * stack * (global_env * uvalue)))) -> Prop)
-  := fun ts ts' => forall t', ts' t' -> exists t, ts t /\ eutt refine_res3 t t'.
+Definition refine_L5 : relation ((itree L5 (memory_stack * (local_env * stack * (global_env * (block_id * uvalue))))) -> Prop)
+  := fun ts ts' => forall t', ts' t' -> exists t, ts t /\ eutt refine_res4 t t'.
 
 (*
 Definition refine_res4 : relation (memory * (local_env * stack * (global_env * dvalue)))
   := TT × (TT × (TT × refine_dvalue)).
  *)
 
-Definition refine_L5 : relation ((itree L5 (memory_stack * (local_env * stack * (global_env * uvalue)))) -> Prop)
-  := fun ts ts' => forall t', ts' t' -> exists t, ts t /\ eutt refine_res3 t t'.
+Definition refine_L6 : relation ((itree L6 (memory_stack * (local_env * stack * (global_env * (block_id * uvalue))))) -> Prop)
+  := fun ts ts' => forall t', ts' t' -> exists t, ts t /\ eutt refine_res4 t t'.
 
 End Make.

@@ -119,10 +119,7 @@ Proof.
   - rewrite tau_euttge, unfold_interp_state; eauto.
   - rewrite tau_euttge, unfold_interp_state; eauto.
 Qed.
-
-
-
-  
+ 
 Hint Unfold TT : core.
 Local Instance TT_equiv :
   forall A, Equivalence (@TT A).
@@ -139,34 +136,40 @@ Section REFINEMENT.
  *)
 
 Lemma refine_01: forall t1 t2 g,
-    refine_L0 t1 t2 -> refine_L1 (interp_global t1 g) (interp_global t2 g).
+    refine_L0 t1 t2 -> refine_L1 (interp_jmp t1 g) (interp_jmp t2 g).
 Proof.
   intros t1 t2 g H.
   apply eutt_tt_to_eq_prod, eutt_interp_state; auto.
 Qed.
 
-Lemma refine_12 : forall t1 t2 l,
-    refine_L1 t1 t2 -> refine_L2 (interp_local_stack (handle_local (v:=uvalue)) t1 l) (interp_local_stack (handle_local (v:=uvalue)) t2 l).
+Lemma refine_12: forall t1 t2 g,
+    refine_L1 t1 t2 -> refine_L2 (interp_global t1 g) (interp_global t2 g).
+Proof.
+  intros t1 t2 g H.
+  apply eutt_tt_to_eq_prod, eutt_interp_state; auto.
+Qed.
+
+Lemma refine_23 : forall t1 t2 l,
+    refine_L2 t1 t2 -> refine_L3 (interp_local_stack (handle_local (v:=uvalue)) t1 l) (interp_local_stack (handle_local (v:=uvalue)) t2 l).
 Proof.
   intros t1 t2 l H.
   apply eutt_tt_to_eq_prod, eutt_interp_state; auto.
 Qed.
 
-Lemma refine_23 : forall t1 t2 m,
-    refine_L2 t1 t2 -> refine_L3 (interp_memory t1 m) (interp_memory t2 m).
+Lemma refine_34 : forall t1 t2 m,
+    refine_L3 t1 t2 -> refine_L4 (interp_memory t1 m) (interp_memory t2 m).
 Proof.
   intros t1 t2 m H.
   apply eutt_tt_to_eq_prod, eutt_interp_state; auto.
 Qed.
 
 (* Things are different for L4 and L5: we get into the [Prop] monad. *)
-Lemma refine_34 : forall t1 t2,
-    refine_L3 t1 t2 -> refine_L4 (model_undef refine_res3 t1) (model_undef refine_res3 t2).
+Lemma refine_45 : forall t1 t2,
+    refine_L4 t1 t2 -> refine_L5 (model_undef refine_res4 t1) (model_undef refine_res4 t2).
 Proof.
   intros t1 t2 H t Ht.
   exists t; split.
   - unfold model_undef in *.
-    unfold L3 in *.
     match goal with |- PropT.interp_prop ?x _ _ _ _ => remember x as h end.
     eapply interp_prop_Proper_eq in Ht.
     apply Ht.
@@ -177,8 +180,8 @@ Proof.
   - reflexivity.
 Qed.
 
-Lemma refine_45 : forall Pt1 Pt2,
-    refine_L4 Pt1 Pt2 -> refine_L5 (model_UB refine_res3 Pt1) (model_UB refine_res3 Pt2).
+Lemma refine_56 : forall Pt1 Pt2,
+    refine_L5 Pt1 Pt2 -> refine_L6 (model_UB refine_res4 Pt1) (model_UB refine_res4 Pt2).
 Proof.
   intros Pt1 Pt2 HR t2 HM.
   exists t2; split; [| reflexivity].
@@ -186,7 +189,7 @@ Proof.
   apply HR in HPt2; destruct HPt2 as (t1' & HPt1 & HPT1).
   exists t1'; split; auto.
   match type of HPT2 with | PropT.interp_prop ?h' ?t _ _ _ => remember h' as h end.
-  eapply interp_prop_Proper_eq with (RR := refine_res3); eauto.
+  eapply interp_prop_Proper_eq with (RR := refine_res4); eauto.
   - typeclasses eauto.
   - typeclasses eauto.
 Qed.
@@ -206,26 +209,30 @@ Qed.
 
 Definition model_to_L1  (prog: mcfg dtyp) :=
   let L0_trace := denote_vellvm_init prog in
-  interp_to_L1 user_intrinsics L0_trace [].
+  interp_to_L1 user_intrinsics L0_trace (Name "dummy").
 
 Definition model_to_L2 (prog: mcfg dtyp) :=
   let L0_trace := denote_vellvm_init prog in
-  interp_to_L2 user_intrinsics L0_trace [] ([],[]).
+  interp_to_L2 user_intrinsics L0_trace (Name "dummy") [].
 
 Definition model_to_L3 (prog: mcfg dtyp) :=
   let L0_trace := denote_vellvm_init prog in
-  interp_to_L3 user_intrinsics L0_trace [] ([],[]) empty_memory_stack.
+  interp_to_L3 user_intrinsics L0_trace (Name "dummy") [] ([],[]).
 
 Definition model_to_L4 (prog: mcfg dtyp) :=
   let L0_trace := denote_vellvm_init prog in
-  interp_to_L4 (refine_res3) user_intrinsics L0_trace [] ([],[]) empty_memory_stack.
+  interp_to_L4 user_intrinsics L0_trace (Name "dummy") [] ([],[]) empty_memory_stack.
 
 Definition model_to_L5 (prog: mcfg dtyp) :=
   let L0_trace := denote_vellvm_init prog in
-  interp_to_L5 (refine_res3) user_intrinsics L0_trace [] ([],[]) empty_memory_stack.
+  interp_to_L5 (refine_res4) user_intrinsics L0_trace (Name "dummy") [] ([],[]) empty_memory_stack.
+
+Definition model_to_L6 (prog: mcfg dtyp) :=
+  let L0_trace := denote_vellvm_init prog in
+  interp_to_L6 (refine_res4) user_intrinsics L0_trace (Name "dummy") [] ([],[]) empty_memory_stack.
 
 (**
-   Which leads to five notion of equivalence of [mcfg]s.
+   Which leads to six notion of equivalence of [mcfg]s.
    Note that all reasoning is conducted after conversion to [mcfg] and
    normalization of types.
  *)
@@ -241,8 +248,11 @@ Definition refine_mcfg_L3 (p1 p2: mcfg dtyp): Prop :=
 Definition refine_mcfg_L4 (p1 p2: mcfg dtyp): Prop :=
   R.refine_L4 (model_to_L4 p1) (model_to_L4 p2).
 
-Definition refine_mcfg  (p1 p2: mcfg dtyp): Prop :=
+Definition refine_mcfg_L5 (p1 p2: mcfg dtyp): Prop :=
   R.refine_L5 (model_to_L5 p1) (model_to_L5 p2).
+
+Definition refine_mcfg  (p1 p2: mcfg dtyp): Prop :=
+  R.refine_L6 (model_to_L6 p1) (model_to_L6 p2).
 
 (**
    The chain of refinements is monotone, legitimating the ability to
@@ -252,28 +262,35 @@ Lemma refine_mcfg_L1_correct: forall p1 p2,
     refine_mcfg_L1 p1 p2 -> refine_mcfg p1 p2.
 Proof.
   intros p1 p2 HR.
-  apply refine_45, refine_34, refine_23, refine_12, HR.
+  apply refine_56, refine_45, refine_34, refine_23, refine_12, HR.
 Qed.
 
 Lemma refine_mcfg_L2_correct: forall p1 p2,
     refine_mcfg_L2 p1 p2 -> refine_mcfg p1 p2.
 Proof.
   intros p1 p2 HR.
-  apply refine_45, refine_34, refine_23, HR.
+  apply refine_56, refine_45, refine_34, refine_23, HR.
 Qed.
 
 Lemma refine_mcfg_L3_correct: forall p1 p2,
     refine_mcfg_L3 p1 p2 -> refine_mcfg p1 p2.
 Proof.
   intros p1 p2 HR.
-  apply refine_45, refine_34, HR.
+  apply refine_56, refine_45, refine_34, HR.
 Qed.
 
 Lemma refine_mcfg_L4_correct: forall p1 p2,
     refine_mcfg_L4 p1 p2 -> refine_mcfg p1 p2.
 Proof.
   intros p1 p2 HR.
-  apply refine_45, HR.
+  apply refine_56, refine_45, HR.
+Qed.
+
+Lemma refine_mcfg_L5_correct: forall p1 p2,
+    refine_mcfg_L5 p1 p2 -> refine_mcfg p1 p2.
+Proof.
+  intros p1 p2 HR.
+  apply refine_56, HR.
 Qed.
 
 (* MOVE *)
@@ -368,41 +385,9 @@ Qed.
 
 End REFINEMENT.
 
-(**
-   Each interpreter commutes with [bind] and [ret].
- **)
-
-(** We hence can also commute them at the various levels of interpretation *)
-
-Lemma interp_to_L2_bind:
-  forall ui {R S} (t: itree L0 R) (k: R -> itree L0 S) s1 s2,
-    interp_to_L2 ui (ITree.bind t k) s1 s2 ≈
-                 (ITree.bind (interp_to_L2 ui t s1 s2) (fun '(s1',(s2',x)) => interp_to_L2 ui (k x) s2' s1')).
-Proof.
-  intros.
-  unfold interp_to_L2.
-  rewrite interp_intrinsics_bind, interp_global_bind, interp_local_stack_bind.
-  apply eutt_clo_bind with (UU := Logic.eq); [reflexivity | intros ? (? & ? & ?) ->; reflexivity].
-Qed.
-
-Lemma interp_to_L2_ret: forall ui (R : Type) s1 s2 (x : R), interp_to_L2 ui (Ret x) s1 s2 ≈ Ret (s2, (s1, x)).
-Proof.
-  intros; unfold interp_to_L2.
-  rewrite interp_intrinsics_ret, interp_global_ret, interp_local_stack_ret; reflexivity.
-Qed.
-
-Definition interp_cfg {R: Type} (trace: itree instr_E R) g l m :=
-  let uvalue_trace   := interp_intrinsics [] trace in
-  let L1_trace       := interp_global uvalue_trace g in
-  let L2_trace       := interp_local L1_trace l in
-  let L3_trace       := interp_memory L2_trace m in
-  let L4_trace       := model_undef Logic.eq L3_trace in
-  let L5_trace       := model_UB Logic.eq L4_trace in
-  L5_trace.
-
-Definition model_to_L5_cfg (prog: cfg dtyp) :=
+Definition model_cfg RR (prog: cfg dtyp) :=
   let trace := D.denote_cfg prog in
-  interp_cfg trace [] [] empty_memory_stack.
+  interp_cfg_to_L6 RR [] trace (Name "Dummy") [] [] empty_memory_stack.
 
 Definition refine_cfg_ret: relation (PropT L5 (memory_stack * (local_env * (global_env * uvalue)))) :=
   fun ts ts' => forall t, ts t -> exists t', ts' t' /\ eutt  (TT × (TT × (TT × refine_uvalue))) t t'.
@@ -443,10 +428,17 @@ Proof.
   cbn.
   destruct (Eqv.eqv_dec_p (blk_id b) bid) eqn:Heq'; try contradiction.
   repeat rewrite bind_bind.
+  apply eutt_eq_bind; intros ?.
   rewrite Heqterm.
   cbn.
   setoid_rewrite translate_ret.
-  setoid_rewrite bind_ret_l.
+  rewrite bind_bind.
+  apply eutt_eq_bind; intros ?.
+  cbn.
+  rewrite bind_bind.
+  apply eutt_eq_bind; intros ?.
+  rewrite bind_ret_l.
+  cbn.
   destruct (Eqv.eqv_dec_p (blk_id b) nextblock); try contradiction.
   repeat setoid_rewrite bind_ret_l. unfold Datatypes.id.
   reflexivity.
