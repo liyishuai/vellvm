@@ -26,6 +26,7 @@ From Vellvm.Handlers Require Export
      Memory
      Pick
      UndefinedBehaviour
+     Jmp
 .
 
 (* Handlers get instantiated over the domain of addresses provided by the memory model *)
@@ -37,4 +38,4 @@ Module Intrinsics := Intrinsics.Make Memory.Addr LLVMEvents.
 Module Mem := Memory.Make LLVMEvents.
 Module Pick := Pick.Make Memory.Addr LLVMEvents.
 
-Export LLVMEvents LLVMEvents.DV Global Local Stack Mem Pick Intrinsics UndefinedBehaviour.       
+Export LLVMEvents LLVMEvents.DV Global Local Stack Mem Pick Intrinsics Jmp UndefinedBehaviour.       

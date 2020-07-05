@@ -828,12 +828,6 @@ Module Denotation(A:MemoryAddress.ADDRESS)(LLVMEvents:LLVM_INTERACTIONS(A)).
         | i::c => denote_instr i;; denote_code c
         end.
 
-      (* A block ends with a terminator, it either jumps to another block,
-         or returns a dynamic value *)
-      Definition denote_block (b: block dtyp) : itree instr_E (block_id + uvalue) :=
-        denote_code (blk_code b);;
-        translate exp_E_to_instr_E (denote_terminator (snd (blk_term b))).
-
       (* YZ FIX: no need to push/pop, but do all the assignments afterward *)
       (* One needs to be careful when denoting phi-nodes: they all must
          be evaluated in the same environment.
@@ -853,7 +847,22 @@ Module Denotation(A:MemoryAddress.ADDRESS)(LLVMEvents:LLVM_INTERACTIONS(A)).
         | None => raise ("jump: phi node doesn't include block " ++ to_string bid)
         end.
 
-      Definition denote_bks (bks: list _): block_id -> itree instr_E (block_id + uvalue) :=
+      Definition denote_phis (bid_from: block_id) (phis: list (local_id * phi dtyp)): itree instr_E unit :=
+        dvs <- Util.map_monad
+                (fun x => translate exp_E_to_instr_E (denote_phi bid_from x))
+                phis;;
+        Util.map_monad (fun '(id,dv) => trigger (LocalWrite id dv)) dvs;;
+        ret tt.
+
+      (* A block ends with a terminator, it either jumps to another block,
+         or returns a dynamic value *)
+      Definition denote_block (b: block dtyp) : itree instr_E (block_id + uvalue) :=
+        'bid_from <- trigger ComeFrom;;
+        denote_phis bid_from (blk_phis b);;
+        denote_code (blk_code b);;
+        translate exp_E_to_instr_E (denote_terminator (snd (blk_term b))).
+
+      Definition denote_bks (bks: list (block dtyp)): block_id -> itree instr_E (block_id + uvalue) :=
         loop (C := ktree _)
              (fun (bid : block_id + block_id) =>
                 match bid with
@@ -869,15 +878,8 @@ Module Denotation(A:MemoryAddress.ADDRESS)(LLVMEvents:LLVM_INTERACTIONS(A)).
                     match bd with
                     | inr dv => ret (inr (inr dv))
                     | inl bid_target =>
-                      match find_block DynamicTypes.dtyp bks bid_target with
-                      | None => ret (inr (inl bid_target))
-                      | Some block_target =>
-                        dvs <- Util.map_monad
-                                (fun x => translate exp_E_to_instr_E (denote_phi bid x))
-                                (blk_phis block_target) ;;
-                        Util.map_monad (fun '(id,dv) => trigger (LocalWrite id dv)) dvs;;
-                        ret (inl bid_target)
-                      end
+                      trigger (GoTo bid);;
+                      ret (inl bid_target)
                     end
                   end
                 end).
@@ -976,16 +978,16 @@ Module Denotation(A:MemoryAddress.ADDRESS)(LLVMEvents:LLVM_INTERACTIONS(A)).
       Definition denote_mcfg
                  (fundefs:list (dvalue * function_denotation)) (dt : dtyp)
                  (f_value : uvalue) (args : list uvalue) : itree L0 uvalue :=
-        @mrec CallE (ExternalCallE +' _)
-              (fun T call =>
+        @mrec CallE (ExternalCallE +' _) 
+              (fun T call => 
                  match call with
                  | Call dt fv args =>
                    dfv <- concretize_or_pick fv True ;; (* TODO, should this be unique? *)
                    match (lookup_defn dfv fundefs) with
                    | Some f_den => (* If the call is internal *)
                      f_den args
-                   | None =>
-                     dargs <- map_monad (fun uv => pickUnique uv) args ;;
+                   | None => 
+                     dargs <- map_monad (fun uv => pickUnique uv) args ;; 
                      fmap dvalue_to_uvalue (trigger (ExternalCall dt fv dargs))
                    end
                  end)

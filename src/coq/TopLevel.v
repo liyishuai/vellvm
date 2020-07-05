@@ -135,15 +135,6 @@ Import D IS.
    then transform a tree at layer n to a tree at layer (n+1).
    *)
   (**
-   In order to limit bloated type signature, we name the successive return types.
-   *)
-
-  Notation res_L1 := (global_env * uvalue)%type (* (only parsing) *).
-  Notation res_L2 := (local_env * lstack * res_L1)%type (* (only parsing) *).
-  Notation res_L3 := (memory_stack * res_L2)%type (* (only parsing) *).
-  Notation res_L4 := (memory_stack * (local_env * lstack * (global_env * uvalue)))%type (* (only parsing) *).
-
-  (**
      Full denotation of a Vellvm program as an interaction tree:
      * initialize the global environment;
      * point wise denote each function;
