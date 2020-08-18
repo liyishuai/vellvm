@@ -1,0 +1,34 @@
+opam-version: "2.0"
+maintainer: "yishuai@upenn.edu"
+homepage: "https://github.com/vellvm/vellvm"
+dev-repo: "git+https://github.com/vellvm/vellvm.git"
+bug-reports: "https://github.com/vellvm/vellvm/issues"
+authors: [
+  "Steve Zdancewic"
+  "Yannick Zakowski"
+  "Calvin Beck"
+  "Olek Gierczak"
+]
+license: "GPL-3.0-or-later"
+build: [make "-j" jobs "-C" "src" "all"]
+run-test: [make "-C" "src" "test"]
+install: [make "-C" "src" "install"]
+depends: [
+  "coq"       { >= "8.11~" }
+  "coq-ext-lib"
+  "coq-flocq"
+  "coq-paco"
+  "coq-ceres"
+  "coq-itree"
+  "ocamlfind" { build }
+  "camlp5"    { build }
+  "dune"      { build }
+  "menhir"    { build }
+]
+synopsis: "The Vellvm (Verified LLVM) coq development"
+tags: [
+  "logpath:Vellvm"
+]
+url {
+  src: "git+https://github.com/vellvm/vellvm"
+}

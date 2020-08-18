@@ -6,9 +6,8 @@ COQLIBDIR = ../lib
 MLDIR = ml
 EXTRACTDIR = ml/extracted
 
-ITREEDIR=../lib/InteractionTrees
 
-COQINCLUDES=$(foreach d, $(COQDIR), -R $(d) Vellvm) -R $(EXTRACTDIR) Extract -R $(ITREEDIR)/theories/ ITree 
+COQINCLUDES=$(foreach d, $(COQDIR), -R $(d) Vellvm) -R $(EXTRACTDIR) Extract
 COQC="$(COQBIN)coqc" -q $(COQINCLUDES) $(COQCOPTS)
 COQDEP="$(COQBIN)coqdep" $(COQINCLUDES)
 COQEXEC="$(COQBIN)coqtop" -q -w none $(COQINCLUDES) -batch -load-vernac-source
@@ -39,6 +38,12 @@ all:
 	$(MAKE) extracted
 	$(MAKE) vellvm
 
+install:
+	$(CP) -r coq/ `opam var lib`/coq/user-contrib/Vellvm
+	install vellvm `opam var bin`
+
+.PHONY: all install
+
 interp:
 	@test -f .depend || $(MAKE) depend
 	$(MAKE) coqinterp
@@ -49,13 +54,7 @@ coq: $(VOFILES)
 
 coqinterp: $(COQFILESINTERP:%=coq/%.vo)
 
-update-trees:
-	git submodule update -- $(ITREEDIR)
-
-itrees:
-	make -C $(ITREEDIR)
-
-.PHONY: extracted itrees 
+.PHONY: extracted
 extracted: $(EXTRACTDIR)/STAMP $(VOFILES)
 
 $(EXTRACTDIR)/STAMP: $(VOFILES) $(EXTRACTDIR)/Extract.v
@@ -71,7 +70,7 @@ $(EXTRACTDIR)/STAMP: $(VOFILES) $(EXTRACTDIR)/Extract.v
 	@echo "COQC $*.v"
 	@$(COQC) -dump-glob doc/$(*F).glob $*.v
 
-depend: itrees $(VFILES) 
+depend: $(VFILES) 
 	@echo "Analyzing Coq dependencies"
 	@$(COQDEP) $^ > .depend
 
@@ -93,7 +92,7 @@ test: vellvm
 print-includes:
 	@echo $(COQINCLUDES)
 
-clean: clean-vellvm clean-itrees
+clean: clean-vellvm
 clean-vellvm:
 	rm -f .depend
 	find $(COQDIR) -name "*.vo" -delete
@@ -105,9 +104,7 @@ clean-vellvm:
 	rm -rf output
 	rm -f vellvm
 	rm -f doc/coq2html.ml doc/coq2html doc/*.cm? doc/*.o
-clean-itrees:
-	make -C $(ITREEDIR) clean
-.PHONY: clean-vellvm clean-itrees
+.PHONY: clean-vellvm
 
 doc/coq2html: 
 	make -C ../lib/coq2html
